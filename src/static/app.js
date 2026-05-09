@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
+    try {
       const response = await fetch("/activities");
       const activities = await response.json();
 
@@ -15,8 +16,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
-        const activityCard = document.createElement("div");
-        activityCard.className = "activity-card";
 
         const spotsLeft = details.max_participants - details.participants.length;
 
@@ -25,6 +24,12 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <h5>Participants (${details.participants.length}):</h5>
+            <ul class="participants-list">
+              ${details.participants.map(p => `<li>${p} <span class="delete-participant" data-email="${p}" data-activity="${name}">×</span></li>`).join('')}
+            </ul>
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -36,8 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
         activitySelect.appendChild(option);
       });
     } catch (error) {
-      activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
+      activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
     }
   }
 
@@ -62,6 +67,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        // Refresh activities to show updated participant list
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -78,6 +85,34 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.className = "error";
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
+    }
+  });
+
+  // Handle delete participant
+  activitiesList.addEventListener("click", async (event) => {
+    if (event.target.classList.contains("delete-participant")) {
+      const email = event.target.dataset.email;
+      const activity = event.target.dataset.activity;
+
+      try {
+        const response = await fetch(
+          `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(email)}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+        if (response.ok) {
+          // Refresh activities after successful deletion
+          fetchActivities();
+        } else {
+          const result = await response.json();
+          alert(result.detail || "Failed to unregister participant");
+        }
+      } catch (error) {
+        alert("Failed to unregister participant. Please try again.");
+        console.error("Error unregistering:", error);
+      }
     }
   });
 
